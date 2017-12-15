@@ -10,11 +10,19 @@ import scipy, scipy.interpolate
 import matplotlib, matplotlib.pyplot
 import datetime
 
-sys.path.append("/work/podi_devel/")
+sys.path.append("quickreduce/")
 from podi_commandline import *
 from podi_definitions import *
 import podi_logging
 import logging
+
+
+def safe_float(s):
+    try:
+        x = float(s)
+    except ValueError:
+        x = numpy.NaN
+    return x
 
 def get_ephemerides_for_object(object_name, 
                                start_datetime="2012-01-01",
@@ -22,7 +30,8 @@ def get_ephemerides_for_object(object_name,
                                time_interval="6h",
                                session_log_file=None,
                                verbose=True,
-                               compute_interpolation=False):
+                               compute_interpolation=False,
+                               quantities='1,3,7,9'):
 
     logger = logging.getLogger("HorizonInterface")
 
@@ -86,6 +95,80 @@ def get_ephemerides_for_object(object_name,
     if (verbose): print search_result,
     logger.debug(search_result)
 
+    if (search_result.find("matches. To SELECT") >= 0):
+        # Found more than one match
+
+        #
+        #     Comet AND asteroid index search:
+        #
+        #    DES = C/1995 O1;
+        #
+        # Matching small-bodies:
+        #
+        #    Record #  Epoch-yr  >MATCH DESIG<  Primary Desig  Name
+        #    --------  --------  -------------  -------------  -------------------------
+        #     902004     1996    C/1995 O1      C/1995 O1       Hale-Bopp
+        #     902005     2008    C/1995 O1      C/1995 O1       Hale-Bopp
+        #
+        # (2 matches. To SELECT, enter record # (integer), followed by semi-colon.)
+        #*******************************************************************************
+
+        lines = search_result.splitlines()
+        # Find the line with the header
+        search_lines = lines
+        for i,line in enumerate(lines):
+            if (line.find("Record #") >= 0):
+                search_lines = lines[i+1:]
+                break
+
+        #
+        # Find lines that contain the object name
+        #
+        epoch_years = []
+        record_numbers = []
+        for line in search_lines:
+            if (line.find(object_name) >= 0):
+                items = line.strip().split()
+                epoch_yr = int(items[1])
+                epoch_years.append(epoch_yr)
+                record_numbers.append(items[0])
+
+        # find the most recent epoch
+        epoch_years = numpy.array(epoch_years)
+        most_recent = numpy.argmax(epoch_years)
+
+        tn.write("%s;\n" % (record_numbers[most_recent]))
+
+        #*******************************************************************************
+        #JPL/HORIZONS                Hale-Bopp (C/1995 O1)          2017-Dec-14 19:17:43
+        #Rec #:902005 (+COV)   Soln.date: 2017-Oct-04_09:43:58     # obs: 39 (2005-2013)
+        #
+        #IAU76/J2000 helio. ecliptic osc. elements (au, days, deg., period=Julian yrs):
+        #
+        #  EPOCH=  2454724.5 ! 2008-Sep-15.0000000 (TDB)    RMSW= n.a.
+        #   EC= .9949607008417696   QR= .9174143409263262   TP= 2450538.4378482755
+        #   OM= 282.9487539423989   W= 130.662020526416     IN= 89.21708989130315
+        #   A= 182.0519703474959    MA= 1.6796417864262     ADIST= 363.1865263540654
+        #   PER= 2456.4124497891    N= .000401246           ANGMOM= .023271875
+        #   DAN= 5.20406            DDN= 1.11035            L= 102.0374188
+        #   B= 49.3317479           MOID= .116025           TP= 1997-Mar-30.9378482755
+        #
+        #Comet physical (GM= km^3/s^2; RAD= km):
+        #   GM= n.a.                RAD= 30.
+        #   M1=  4.       M2=  n.a.     k1=  8.     k2= n.a.     PHCOF= n.a.
+        #
+        #COMET comments
+        #1: soln ref.= JPL#J971B/1, data arc: 2005-02-18 to 2013-08-13
+        #2: k1=8.;Not valid before 2005-1-1
+        #*******************************************************************************
+
+        horizon_return = tn.read_until("<cr>:")
+        session_log += horizon_return
+        if (verbose): print horizon_return,
+        logger.debug(horizon_return)
+
+
+
     # For numbered objects, and for un-numbered objects after confirmation, we
     # should received something like this:
     # ---
@@ -115,7 +198,7 @@ def get_ephemerides_for_object(object_name,
     #  Select ... [A]pproaches, [E]phemeris, [F]tp,[M]ail,[R]edisplay, [S]PK,?,<cr>: 
     # ---
 
-    if (search_result.find("No matches found.") >= 0) :
+    elif (search_result.find("No matches found.") >= 0) :
         # If there's no object found, we will instead read this:
         # ---
         # *******************************************************************************
@@ -187,7 +270,7 @@ def get_ephemerides_for_object(object_name,
     session_log += horizon_return 
     if (verbose): print horizon_return,
     logger.debug(horizon_return)
-    tn.write("1,3,7,9\n")
+    tn.write("%s\n" % (quantities))
 
     horizon_return = tn.read_until(" Output reference frame [J2000, B1950] : ")
     session_log += horizon_return 
@@ -279,6 +362,12 @@ def get_ephemerides_for_object(object_name,
     logger.debug(horizon_return)
     tn.write("\n")
 
+    horizon_return = tn.read_until("RA/DC angular rate cut-off [0-100000] :")
+    session_log += horizon_return
+    if (verbose): print horizon_return,
+    logger.debug(horizon_return)
+    tn.write("\n")
+
     horizon_return = tn.read_until(" Spreadsheet CSV format        [ Y,N ] : ")
     session_log += horizon_return 
     if (verbose): print horizon_return,
@@ -327,15 +416,19 @@ def get_ephemerides_for_object(object_name,
     #
     jd2mjd = 2400000.5
     np = []
+    np_all = []
     for line in ephemdata.split("\n")[:-1]:
         items = line.split(',')
-        mjd = float(items[0]) - jd2mjd
-        ra = float(items[3])
-        dec = float(items[4])
-        rate_ra = float(items[5])
-        rate_dec = float(items[6])
-        np.append([mjd,ra,dec,rate_ra,rate_dec])
+        mjd = safe_float(items[0]) - jd2mjd
+        ra = safe_float(items[3])
+        dec = safe_float(items[4])
+        rate_ra = safe_float(items[5])
+        rate_dec = safe_float(items[6])
+        mag = safe_float(items[8])
+        np_all.append(items)
+        np.append([mjd,ra,dec,rate_ra,rate_dec, mag])
     data = numpy.array(np)
+    full_data = np_all #numpy.array(np_all)
     numpy.savetxt("ephem.data", data)
 
     # Now create some interpolation vectors
@@ -353,6 +446,7 @@ def get_ephemerides_for_object(object_name,
         'dec': dec_vs_mjd,
         'rate_ra': rate_ra_vs_mjd,
         'rate_ra': rate_dec_vs_mjd,
+        'full_data': full_data,
         }
     #
     #
