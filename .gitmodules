@@ -1,0 +1,3 @@
+[submodule "quickreduce"]
+	path = quickreduce
+	url = git://github.com/WIYN-ODI/QuickReduce.git
