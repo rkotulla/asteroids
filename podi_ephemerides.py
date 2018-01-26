@@ -10,7 +10,8 @@ import scipy, scipy.interpolate
 import matplotlib, matplotlib.pyplot
 import datetime
 
-sys.path.append("quickreduce/")
+dir_path = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(dir_path, "quickreduce/"))
 from podi_commandline import *
 from podi_definitions import *
 import podi_logging
@@ -447,7 +448,11 @@ def get_ephemerides_for_object(object_name,
         'rate_ra': rate_ra_vs_mjd,
         'rate_ra': rate_dec_vs_mjd,
         'full_data': full_data,
+        #'raw': '',
+        'raw': ephemdata,
         }
+    print ephemdata
+
     #
     #
     #
