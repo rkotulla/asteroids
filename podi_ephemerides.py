@@ -1,7 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 
 # coding: utf-8
+from __future__ import print_function
 import telnetlib
 import time
 import os, sys
@@ -25,6 +26,47 @@ def safe_float(s):
         x = numpy.NaN
     return x
 
+
+class myTelnet(object):
+
+    def __init__(self, *args, **kwargs):
+        self.tn = telnetlib.Telnet(*args, **kwargs)
+        self.logger = logging.getLogger("Telnet")
+
+        self.log = ""
+
+    def logdump(self, txt):
+        with open("telnet.log", "ab") as f:
+            f.write(bytes(str(txt), 'UTF-8'))
+
+    def write(self, txt):
+        self.logger.debug("Sending: %s" % (txt))
+        self.logdump(txt)
+        return self.tn.write(str(txt).encode('ascii'))
+
+    def read_some(self):
+        x = self.tn.read_some().decode("utf-8")
+        self.logdump(x)
+        return x
+
+    def read_until(self, txt):
+        y = str(txt).encode('ascii')
+        self.logger.debug("Reading until: %s" % (y))
+        ret = self.tn.read_until(y).decode("utf-8")
+        self.logdump(ret)
+        return ret
+
+    def read_all(self):
+        x = self.tn.read_all().decode("utf-8")
+        self.logdump(x)
+        self.logger.debug("READING ALL: %s" % (x))
+        return x
+
+    def close(self):
+        return self.tn.close()
+
+
+
 def get_ephemerides_for_object(object_name, 
                                start_datetime="2012-01-01",
                                end_datetime="2014-01-01",
@@ -37,7 +79,8 @@ def get_ephemerides_for_object(object_name,
     logger = logging.getLogger("HorizonInterface")
 
     logger.info("Connecting to NASA Horizon Telnet server, searching for %s" % (object_name))
-    tn = telnetlib.Telnet('horizons.jpl.nasa.gov', 6775)
+    # tn = telnetlib.Telnet('horizons.jpl.nasa.gov', 6775)
+    tn = myTelnet('horizons.jpl.nasa.gov', 6775)
     tn.write("vt100\n")
 
     session_log = ""
@@ -68,7 +111,7 @@ def get_ephemerides_for_object(object_name,
             done_reading = True
 
     session_log += return_string
-    if (verbose): print return_string
+    if (verbose): print(return_string)
     logger.debug(return_string)
 
     if (return_string.find(">EXACT< designation search [CASE & SPACE sensitive]:") >= 0):
@@ -89,11 +132,13 @@ def get_ephemerides_for_object(object_name,
 
         # Send confirmation
         tn.write("\n")
+    else:
+        logger.info("NOT SURE WHAT'S HAPPENING NOW")
 
     search_result = tn.read_until("<cr>:")
     session_log += search_result
     # print session_log
-    if (verbose): print search_result,
+    if (verbose): print(search_result, end=" ")
     logger.debug(search_result)
 
     if (search_result.find("matches. To SELECT") >= 0):
@@ -165,7 +210,7 @@ def get_ephemerides_for_object(object_name,
 
         horizon_return = tn.read_until("<cr>:")
         session_log += horizon_return
-        if (verbose): print horizon_return,
+        if (verbose): print(horizon_return, end=" ")
         logger.debug(horizon_return)
 
 
@@ -216,7 +261,7 @@ def get_ephemerides_for_object(object_name,
 
         logger.error("Selected object (%s) not found" % (object_name))
         tn.close()
-        print "\n"*5,"No matches found","\n"*5
+        print("\n"*5,"No matches found","\n"*5)
         return None
 
     logger.info("Obtaining ephemeris for times %s ... %s (%s)" % (
@@ -227,171 +272,171 @@ def get_ephemerides_for_object(object_name,
 
     horizon_return = tn.read_until("Observe, Elements, Vectors  [o,e,v,?] :")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("o\n")
 
     horizon_return = tn.read_until(" Coordinate center [ <id>,coord,geo  ] :")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("695@399\n")
 
     horizon_return = tn.read_until(" Confirm selected station    [ y/n ] --> ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("y\n")
 
     horizon_return = tn.read_until(" Starting UT  [>=   1599-Dec-11 23:59] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("%s\n" % (start_datetime))
 
     horizon_return = tn.read_until(" Ending   UT  [<=   2500-Dec-30 23:58] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("%s\n" % (end_datetime))
 
     horizon_return = tn.read_until(" Output interval [ex: 10m, 1h, 1d, ? ] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("%s\n" % (time_interval))
 
     horizon_return = tn.read_until(" Accept default output [ cr=(y), n, ?] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("n\n")
 
     horizon_return = tn.read_until(" Select table quantities [ <#,#..>, ?] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("%s\n" % (quantities))
 
     horizon_return = tn.read_until(" Output reference frame [J2000, B1950] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("J2000\n")
 
     horizon_return = tn.read_until(" Time-zone correction   [ UT=00:00,? ] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("\n")
 
     horizon_return = tn.read_until(" Output UT time format   [JD,CAL,BOTH] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("JD\n")
 
     horizon_return = tn.read_until(" Output time digits  [MIN,SEC,FRACSEC] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("MIN\n")
 
     horizon_return = tn.read_until(" Output R.A. format       [ HMS, DEG ] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("DEG\n")
 
     horizon_return = tn.read_until(" Output high precision RA/DEC [YES,NO] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("YES\n")
 
     horizon_return = tn.read_until(" Output APPARENT [ Airless,Refracted ] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("Airless\n")
 
     horizon_return = tn.read_until(" Set units for RANGE output [ KM, AU ] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("AU\n")
 
     horizon_return = tn.read_until(" Suppress RANGE_RATE output [ YES,NO ] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("YES\n")
 
     horizon_return = tn.read_until(" Minimum elevation [ -90 <= elv <= 90] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("\n")
 
     horizon_return = tn.read_until(" Maximum air-mass  [ 1 <=   a  <= 38 ] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("\n")
 
     horizon_return = tn.read_until(" Print rise-transit-set only [N,T,G,R] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("N\n")
 
     horizon_return = tn.read_until(" Skip printout during daylight [ Y,N ] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("N\n")
 
     horizon_return = tn.read_until(" Solar elongation cut-off   [ 0, 180 ] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("\n")
 
     horizon_return = tn.read_until(" Local Hour Angle cut-off       [0-12] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("\n")
 
     horizon_return = tn.read_until("RA/DC angular rate cut-off [0-100000] :")
     session_log += horizon_return
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("\n")
 
     horizon_return = tn.read_until(" Spreadsheet CSV format        [ Y,N ] : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("Y\n")
 
     horizon_return = tn.read_until("$$SOE\r\n")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
 
     ephemdata = tn.read_until("$$EOE")
     session_log += ephemdata
-    if (verbose): print ephemdata,
+    if (verbose): print(ephemdata, end="")
     logger.debug(ephemdata)
 
     datafile = open("telnet.csv", "w")
-    print >>datafile, ephemdata
+    print(ephemdata, file=datafile)
     datafile.close()
     
     horizon_return = tn.read_until(" >>> Select... [A]gain, [N]ew-case, [F]tp, [K]ermit, [M]ail, [R]edisplay, ? : ")
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
 
     # send the quit command
@@ -399,26 +444,31 @@ def get_ephemerides_for_object(object_name,
 
     horizon_return = tn.read_all()
     session_log += horizon_return 
-    if (verbose): print horizon_return,
+    if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
 
     logger.debug("Closing connection")
     tn.close()
 
-    if (not session_log_file == None):
+    if (session_log_file is not None):
         logger.debug("Saving session to file %s" % (session_log_file))
         logfile = open(session_log_file, "w")
-        print >>logfile, session_log
+        print(session_log, file=logfile)
         logfile.close()
 
-    logger.info("Interpreting results")
+
     #
     # Analyse the output 
     #
     jd2mjd = 2400000.5
     np = []
     np_all = []
-    for line in ephemdata.split("\n")[:-1]:
+    ephemdata_lines = str(ephemdata).split("\n")
+    with open("dummy.test", "wb") as f:
+        f.write(bytes(ephemdata, 'UTF-8'))
+
+    logger.info("Interpreting results (%d lines)" % (len(ephemdata_lines)))
+    for line in ephemdata_lines[:-1]:
         items = line.split(',')
         mjd = safe_float(items[0]) - jd2mjd
         ra = safe_float(items[3])
@@ -451,7 +501,7 @@ def get_ephemerides_for_object(object_name,
         #'raw': '',
         'raw': ephemdata,
         }
-    print ephemdata
+    print(ephemdata)
 
     #
     #
@@ -515,8 +565,8 @@ def get_ephemerides_for_object_from_filelist(object_name,
 
     
     if (verbose):
-        print object_name
-        print "\n".join(filelist)+"\n"
+        print(object_name)
+        print("\n".join(filelist)+"\n")
 
     logger = logging.getLogger("HorizonInterface")
     logger.info("Determining MJD time-frame from %d files" % (len(filelist)))
@@ -568,7 +618,7 @@ def load_ephemerides(filename, plot=False):
     # Load file
     dat = open(filename, "r")
     lines = dat.readlines()
-    print lines[:2]
+    print(lines[:2])
 
     ref_date_str = "2014-Jan-01 00:00"
     date_format = "%Y-%b-%d %H:%M"
@@ -594,7 +644,7 @@ def load_ephemerides(filename, plot=False):
 
         mjd = 0
 
-        print date_time
+        print(date_time)
         date_obs = datetime.datetime.strptime(" ".join(date_time), 
                                               date_format)
 
@@ -637,7 +687,7 @@ if __name__ == "__main__":
 
     if (cmdline_arg_isset("-mjd2date")):
         mjd = float(get_clean_cmdline()[1])
-        print mjd_to_datetime(mjd, "%Y-%m-%d %H:%M:%S")
+        print(mjd_to_datetime(mjd, "%Y-%m-%d %H:%M:%S"))
 
     if (cmdline_arg_isset("-fromlist")):
         objname = get_clean_cmdline()[1]
@@ -646,18 +696,27 @@ if __name__ == "__main__":
                                                            filelist=filelist,
                                                            session_log_file="session.log",
                                                            verbose=False)
-        print results
+        print(results)
 
     if (cmdline_arg_isset("-check")):
         objname = get_clean_cmdline()[1]
+        verbose = cmdline_arg_isset("-v")
 
-        get_ephemerides_for_object(objname, 
-                               start_datetime="2014-01-01",
+        options = read_options_from_commandline(None)
+        conf = podi_logging.setup_logging(options)
+
+        results = get_ephemerides_for_object(objname,
+                               start_datetime="2014-12-30",
                                end_datetime="2015-01-01",
-                               time_interval="7d",
+                               time_interval="1d",
                                session_log_file='nasa_horizon.check',
-                               verbose=True,
+                               verbose=verbose,
                                compute_interpolation=False)
+
+        print(results['data'])
+        print("")
+
+        podi_logging.shutdown_logging(options)
 
     else:
         
@@ -666,57 +725,62 @@ if __name__ == "__main__":
         podi_logging.setup_logging(options)
 
         object_name = get_clean_cmdline()[1]
-        results = get_ephemerides_for_object(object_name, verbose=False)
+        results = get_ephemerides_for_object(
+            object_name, verbose=True,
+            start_datetime="2014-12-30",
+            end_datetime="2015-01-01",
+            time_interval="1d",
+        )
 
-        logger = logging.getLogger("OrbitPlots")
-
-        import matplotlib, matplotlib.pyplot
-        fig = matplotlib.pyplot.figure()
-        ax = fig.add_subplot(111)
-
-        ax.plot(results['data'][:,1], results['data'][:,2], "-", c='blue')
-
-        # matplotlib.pyplot.show()
-        # fig.show()
-        pngfile = "orbit_v1__%s.png" % (object_name.replace(' ','').replace("/",''))
-        logger.info("Saving Orbit (V1) to %s" % (pngfile))
-        fig.savefig(pngfile)
-
-
-        fig2 = matplotlib.pyplot.figure()
-        ax_ra = fig2.add_subplot(121, polar=True)
-        ax_ra.set_title("RA")
-        ax_ra.plot(numpy.radians(results['data'][:,1]), results['data'][:,0], color='r', linewidth=3)
-        ax_ra.set_rmin(results['data'][0,0])
-        ax_ra.set_rmax(results['data'][-1,0])
-        ax_ra.grid(True)
-
-        ax_dec = fig2.add_subplot(122, polar=True)
-        ax_dec.set_title("Declination")
-        ax_dec.plot(numpy.radians(results['data'][:,2]), results['data'][:,0], color='r', linewidth=3)
-        ax_dec.grid(True)
-        ax_dec.set_rmin(results['data'][0,0])
-        ax_dec.set_rmax(results['data'][-1,0])
-        # fig2.show()
-        # matplotlib.pyplot.show()
-        pngfile = "orbit_v2__%s.png" % (object_name.replace(' ','').replace("/",''))
-        logger.info("Saving Orbit (V2) to %s" % (pngfile))
-        fig2.savefig(pngfile)
-
-        fig3 = matplotlib.pyplot.figure()
-        ax3_ra = fig3.add_subplot(211)
-        ax3_ra.plot(results['data'][:,0], results['data'][:,1])
-        ax3_ra.set_xlabel("MJD")
-        ax3_ra.set_ylabel("RA [degrees]")
-
-        ax3_dec = fig3.add_subplot(212)
-        ax3_dec.plot(results['data'][:,0], results['data'][:,2])
-        ax3_dec.set_xlabel("MJD")
-        ax3_dec.set_ylabel("Declination [degrees]")
-        # fig3.show()
-        # matplotlib.pyplot.show()
-        pngfile = "orbit_v3__%s.png" % (object_name.replace(' ','').replace("/",''))
-        logger.info("Saving Orbit (V3) to %s" % (pngfile))
-        fig3.savefig(pngfile)
-
+        # logger = logging.getLogger("OrbitPlots")
+        #
+        # import matplotlib, matplotlib.pyplot
+        # fig = matplotlib.pyplot.figure()
+        # ax = fig.add_subplot(111)
+        #
+        # ax.plot(results['data'][:,1], results['data'][:,2], "-", c='blue')
+        #
+        # # matplotlib.pyplot.show()
+        # # fig.show()
+        # pngfile = "orbit_v1__%s.png" % (object_name.replace(' ','').replace("/",''))
+        # logger.info("Saving Orbit (V1) to %s" % (pngfile))
+        # fig.savefig(pngfile)
+        #
+        #
+        # fig2 = matplotlib.pyplot.figure()
+        # ax_ra = fig2.add_subplot(121, polar=True)
+        # ax_ra.set_title("RA")
+        # ax_ra.plot(numpy.radians(results['data'][:,1]), results['data'][:,0], color='r', linewidth=3)
+        # ax_ra.set_rmin(results['data'][0,0])
+        # ax_ra.set_rmax(results['data'][-1,0])
+        # ax_ra.grid(True)
+        #
+        # ax_dec = fig2.add_subplot(122, polar=True)
+        # ax_dec.set_title("Declination")
+        # ax_dec.plot(numpy.radians(results['data'][:,2]), results['data'][:,0], color='r', linewidth=3)
+        # ax_dec.grid(True)
+        # ax_dec.set_rmin(results['data'][0,0])
+        # ax_dec.set_rmax(results['data'][-1,0])
+        # # fig2.show()
+        # # matplotlib.pyplot.show()
+        # pngfile = "orbit_v2__%s.png" % (object_name.replace(' ','').replace("/",''))
+        # logger.info("Saving Orbit (V2) to %s" % (pngfile))
+        # fig2.savefig(pngfile)
+        #
+        # fig3 = matplotlib.pyplot.figure()
+        # ax3_ra = fig3.add_subplot(211)
+        # ax3_ra.plot(results['data'][:,0], results['data'][:,1])
+        # ax3_ra.set_xlabel("MJD")
+        # ax3_ra.set_ylabel("RA [degrees]")
+        #
+        # ax3_dec = fig3.add_subplot(212)
+        # ax3_dec.plot(results['data'][:,0], results['data'][:,2])
+        # ax3_dec.set_xlabel("MJD")
+        # ax3_dec.set_ylabel("Declination [degrees]")
+        # # fig3.show()
+        # # matplotlib.pyplot.show()
+        # pngfile = "orbit_v3__%s.png" % (object_name.replace(' ','').replace("/",''))
+        # logger.info("Saving Orbit (V3) to %s" % (pngfile))
+        # fig3.savefig(pngfile)
+        #
         podi_logging.shutdown_logging(options)
