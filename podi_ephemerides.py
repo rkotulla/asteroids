@@ -288,13 +288,13 @@ def get_ephemerides_for_object(object_name,
     logger.debug(horizon_return)
     tn.write("y\n")
 
-    horizon_return = tn.read_until(" Starting UT  [>=   1599-Dec-11 23:59] : ")
+    horizon_return = tn.read_until(" Starting UT  [>=   1599-Dec-09 23:59] : ")
     session_log += horizon_return 
     if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
     tn.write("%s\n" % (start_datetime))
 
-    horizon_return = tn.read_until(" Ending   UT  [<=   2500-Dec-30 23:58] : ")
+    horizon_return = tn.read_until(" Ending   UT  [<=   2501-Jan-01 23:58] : ")
     session_log += horizon_return 
     if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
@@ -434,7 +434,7 @@ def get_ephemerides_for_object(object_name,
     print(ephemdata, file=datafile)
     datafile.close()
     
-    horizon_return = tn.read_until(" >>> Select... [A]gain, [N]ew-case, [F]tp, [K]ermit, [M]ail, [R]edisplay, ? : ")
+    horizon_return = tn.read_until(" >>> Select... [A]gain, [N]ew-case, [F]tp, [M]ail, [R]edisplay, ? : ")
     session_log += horizon_return 
     if (verbose): print(horizon_return, end=" ")
     logger.debug(horizon_return)
